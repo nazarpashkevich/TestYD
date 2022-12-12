@@ -46,7 +46,6 @@ class AskBot
     public function checkConversation(): bool
     {
         $cacheKey = 'conversation_' . $this->getChatId();
-        \Log::debug($cacheKey);
         if (Cache::has($cacheKey)) {
             $data = Cache::get($cacheKey);
             if (!empty($data['question']) && !empty($data['chat_id']) && !empty($data['callback'])) {
