@@ -7,6 +7,7 @@ use App\Services\Telegram\AskBot;
 use App\Services\Telegram\Conversations\AskTrelloEmailConversation;
 use App\Services\Telegram\SenderBot;
 use App\Services\Telegram\WebhookBot;
+use App\Services\Trello\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Http\Response;
 
@@ -26,22 +27,26 @@ class LinkToTrelloCommand implements AbstractCommand
                     'Подскажи свой Trello username?',
                     function ($response) {
                         $senderBot = new SenderBot();
+                        $errorMsg = 'Упс, что то не так';
                         if (!empty($response['text'])) {
-                            if (!User::query()->where('trello_username', $response['text'])->exists()) {
-                                if ($user = $senderBot->getDbUser($response['from'])) {
-                                    $user->trello_username = $response['text'];
-                                    $user->save();
-                                    $senderBot->sendMessage('Привязал', $response['from']['id']);
+                            $username = $response['text'];
+                            if (!User::query()->where('trello_username', $username)->exists()) {
+                                if (count((new Client())->getMemberData($username)) > 0) {
+                                    if ($user = $senderBot->getDbUser($response['from'])) {
+                                        $user->trello_username = $username;
+                                        $user->save();
+                                        $senderBot->sendMessage('Привязал', $response['from']['id']);
 
-                                    return true;
+                                        return true;
+                                    }
+                                } else {
+                                    $errorMsg = 'Упс, не могу найти аккаунт с таким username';
                                 }
+                            } else {
+                               $errorMsg = 'Упс, этот username уже привязан к другому аккаунту';
                             }
                         }
-
-                        $senderBot->sendMessage(
-                            'Упс, что то не так, или этот username уже привязан к другому аккаунту',
-                            $response['from']['id']
-                        );
+                        $senderBot->sendMessage($errorMsg, $response['from']['id']);
 
                         return false;
                     }
